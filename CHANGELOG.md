@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.15.0
+- Many client-side and server-side dependencies updated
+- Add ability to bind to a specific IP address via the --ip flag or the SQLPAD_IP environment variable
+- Removed sort inputs for bar charts. (Chart sort may instead be influenced using  ORDER BY in SQL query.)
+
+## 1.14.0
+- Add ability to turn off date localization (add config item "localize" set to "false")
+
 ## 1.13.0
 - Add --debug flag to SqlPad cli to enable extra logging
 - Port and passphrase may be set via environment variables SQLPAD_PORT and SQLPAD_PASSPHRASE

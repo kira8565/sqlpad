@@ -10,20 +10,14 @@ var app = express();
 
 /*  Automatic notifier thing that an update is available
 ============================================================================= */
-var notifier = updateNotifier({
-    packageName: packageJson.name, 
-    packageVersion: packageJson.version
-});
+updateNotifier({pkg: packageJson}).notify();
 
-if (notifier.update) {
-    notifier.notify();
-}
 
 /*  add config to app object
-    TODO: remove dependency on attaching config values to app object 
+    TODO: remove dependency on attaching config values to app object
     Turns out node.js cache's the require() of a module
-    Instead of attaching config to the app object, 
-    just require('./lib/config.js') around the app. 
+    Instead of attaching config to the app object,
+    just require('./lib/config.js') around the app.
     (Sometimes we need config when we don't need the app object)
 ============================================================================= */
 var config = require('./lib/config.js');
@@ -35,11 +29,12 @@ app.set('debug', config.debug);
 app.set('passphrase', config.passphrase);
 app.set('dbPath', config.dbPath);
 app.set('port', config.port);
+app.set('ip', config.ip);
 if (config.hasOwnProperty('dev')) app.set('dev', true);
 if (config.admin) app.set('admin', config.admin);
 
 /*  Boostrap app object with stuff
-    This allows us to pass app around and all the related utility/helper/db 
+    This allows us to pass app around and all the related utility/helper/db
     functions and variables go with it.
     TODO: move to just requiring needed files directly
 ============================================================================= */
@@ -97,7 +92,28 @@ app.use(function (req, res, next) {
     res.locals.openAdminRegistration = app.get('openAdminRegistration');
     res.locals.user = req.user;
     res.locals.isAuthenticated = req.isAuthenticated();
-	next();
+
+    // Expose key-value configs as a common variable
+    var db = app.get('db');
+
+    db.config.find({}, function (err, configItems) {
+      if (err) {
+          res.send({
+              success: false,
+              error: err.toString()
+          });
+      } else {
+        var keyValueConfig = {};
+
+        for (var i = 0; i < configItems.length; i++) {
+          keyValueConfig[configItems[i]['key']] = configItems[i]['value'];
+        }
+
+        res.locals.configItems = JSON.stringify(keyValueConfig);
+      }
+
+      next();
+    });
 });
 app.use(function (req, res, next) {
     // if not signed in redirect to sign in page
@@ -115,7 +131,7 @@ app.use(function (req, res, next) {
 
 
 /*  Must Be Admin middleware
-    Some places are restricted to admins. 
+    Some places are restricted to admins.
     This middleware and middleware assignment handles that.
 ============================================================================= */
 function mustBeAdmin (req, res, next) {
@@ -132,16 +148,16 @@ app.use('/config', mustBeAdmin);
 
 
 /*  Routes begins here
-    
+
     The modules in ./routes/ are just functions that take the app object
-    and build out the routes. 
-    
+    and build out the routes.
+
     /            (redirects to queries or connections)
     /signup      (open to everyone, but you gotta be whitelisted to use it)
     /signin      (default if not logged in)
     /queries     (lists queries)
     /connections (list/create/update/delete connections)
-    
+
     Generally, I try to follow the standard convention.
     But sometimes I don't though:
 
@@ -164,6 +180,6 @@ require('./routes/tags.js')(app);
 
 /*	Start the Server
 ============================================================================= */
-http.createServer(app).listen(app.get('port'), function(){
-	console.log('\nWelcome to ' + app.locals.title + '!. Visit http://localhost:' + app.get('port') + ' to get started');
+http.createServer(app).listen(app.get('port'), app.get('ip'), function(){
+	console.log('\nWelcome to ' + app.locals.title + '!. Visit http://'+(app.get('ip') == '0.0.0.0' ? 'localhost' : app.get('ip'))+':' + app.get('port') + ' to get started');
 });
